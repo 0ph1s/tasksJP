@@ -1,6 +1,6 @@
-# Soma Simbólica Formal em Haskell
+# Operações Aritméticas Simbólicas em Haskell
 
-Projeto acadêmico desenvolvido a partir de atividades propostas pelo professor João Paulo, com foco em **operações aritméticas simbólicas usando Haskell**.
+Projeto acadêmico desenvolvido a partir de desafios propostos pelo professor João Paulo, com foco em **operações aritméticas simbólicas usando Haskell**.
 
 A ideia é construir, de forma gradual, uma implementação das quatro operações aritméticas básicas — soma, subtração, multiplicação e divisão — trabalhando com representações simbólicas dos dígitos, em vez de depender diretamente das operações numéricas nativas da linguagem.
 
