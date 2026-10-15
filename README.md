@@ -4,7 +4,7 @@ Projeto acadêmico desenvolvido a partir de desafios propostos pelo professor Jo
 
 A ideia é construir, de forma gradual, uma implementação das quatro operações aritméticas básicas — soma, subtração, multiplicação e divisão — trabalhando com representações simbólicas dos dígitos, em vez de depender diretamente das operações numéricas nativas da linguagem.
 
-> **Status atual:** somente a **soma simbólica** está implementada. Subtração, multiplicação e divisão fazem parte dos próximos passos do projeto.
+> **Status atual:** somente a **soma simbólica** está implementada. Subtração e multiplicação fazem parte dos próximos passos do projeto.
 
 ## Objetivos
 
