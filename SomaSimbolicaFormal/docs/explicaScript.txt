@@ -1,0 +1,366 @@
+================================================================================
+EXPLICAÇÃO DETALHADA DOS CÓDIGOS - SOMA SIMBÓLICA FORMAL EM HASKELL
+Adição decimal via Máquina de Mealy com tabela simbólica pura (sem tipos numéricos)
+Desafio Professor JP - FATEC Baixada Santista Rubens Lara - Ciência de Dados
+================================================================================
+
+COMO USAR ESTE ARQUIVO
+----------------------
+1. Leia a seção 1 (visão geral) para entender o contexto.
+2. Leia a seção 2 (glossário) para familiarizar-se com os símbolos de Haskell.
+3. Estude as seções 3 a 6, que explicam cada função linha a linha.
+4. Refaça o exemplo completo da seção 7.
+5. Use a seção 8 como consulta rápida.
+
+================================================================================
+1. VISÃO GERAL
+================================================================================
+
+O QUE É O DESAFIO
+  Somar dois números dados como texto (String) em Haskell, por exemplo
+  "999" + "1" = "1000", com uma regra rígida: NUNCA converter os textos para
+  tipos numéricos (Int, Integer, Float...), nem criar tipos intermediários de
+  dígitos. Tudo acontece no nível dos caracteres ('0' a '9').
+
+A IDEIA CENTRAL
+  Imitar a conta de armar no papel. Quando somamos 78 + 56 no caderno:
+    - olhamos uma coluna de cada vez, da direita para a esquerda;
+    - consultamos a "tabuada" de memória (8 + 6 dá 4 e vai 1);
+    - guardamos o "vai-um" para a próxima coluna.
+  O computador não precisa de números para isso: só precisa de uma tabela
+  finita de regras (a tabela simbólica) e de uma memória de UM bit: "tem vai-um
+  ou não tem". Esse bit é o ESTADO da máquina.
+
+O MODELO MATEMÁTICO
+  Máquina de Mealy: um autômato finito que, a cada passo, lê um símbolo de
+  entrada, muda de estado e EMITE um símbolo de saída. Aqui:
+    - entrada de cada passo: o par de dígitos da coluna atual;
+    - estado: o transporte (vai-um), '0' ou '1';
+    - saída de cada passo: o dígito do resultado daquela coluna.
+
+AS QUATRO FUNÇÕES DO CÓDIGO
+  sd  - a tabela simbólica (consulta de um par de dígitos + vai-um)
+  sa  - o motor recursivo (percorre as fitas coluna a coluna)
+  s   - a interface de soma de dois números (inverte, chama sa, inverte)
+  sl  - a soma de uma lista de números (usa foldl1)
+
+================================================================================
+2. GLOSSÁRIO DE SÍMBOLOS DE HASKELL
+================================================================================
+
+  ::          "tem o tipo". Ex.: sd :: Char -> Char -> Char -> (Char, Char)
+  ->          separa tipos de argumentos e retorno.
+  =           definição de uma equação (padrão = resultado).
+  []          lista vazia.
+  (x:xs)      padrão de lista: x é a cabeça (primeiro elemento), xs é a cauda
+              (resto da lista). Ex.: em ['7','8'], x='7' e xs=['8'].
+  :           operador "cons": adiciona um elemento no início de uma lista.
+              Ex.: '2' : ['3','1'] = ['2','3','1'].
+  let ... in  expressão que define variáveis locais.
+  (r, nv)     tupla de dois valores (par ordenado).
+  reverse     inverte uma lista. Ex.: reverse "123" = "321".
+  foldl1      dobra à esquerda usando o primeiro elemento como acumulador.
+  Char        tipo caractere. Ex.: '0', 'a', '9'.
+  String      sinônimo de [Char] (lista de caracteres). Ex.: "123" = ['1','2','3'].
+  Integer     tipo inteiro de precisão arbitrária (NÃO usado no código).
+  Int         tipo inteiro de tamanho fixo (NÃO usado no código).
+
+================================================================================
+3. A FUNÇÃO sd - A TABELA SIMBÓLICA
+================================================================================
+
+ASSINATURA (O "CONTRATO" DA FUNÇÃO)
+-----------------------------------
+  sd :: Char -> Char -> Char -> (Char, Char)
+
+  Como se lê:
+    - sd é o nome da função.
+    - :: significa "tem o tipo".
+    - Char -> Char -> Char -> (Char, Char) significa: "recebe um Char, depois
+      outro Char, depois outro Char, e devolve uma tupla de dois Char".
+
+  Traduzindo para português:
+    "Dados o dígito 1, o dígito 2 e o vai-um atual, devolve o dígito resultado
+     e o novo vai-um."
+
+  Por que (Char, Char) e não Char -> Char?
+    Porque a função devolve DUAS coisas ao mesmo tempo: o dígito emitido E o
+    novo estado (vai-um). Em Haskell, uma tupla (a, b) agrupa dois valores.
+    Então (Char, Char) é um par de caracteres.
+
+  Exemplo de leitura da assinatura:
+    sd :: Char -> Char -> Char -> (Char, Char)
+           ↑       ↑       ↑        ↑
+        dígito1  dígito2  vai-um   (saída, novo vai-um)
+
+AS EQUAÇÕES DA TABELA
+---------------------
+  sd '0' '0' '0' = ('0', '0')
+  sd '0' '0' '1' = ('1', '0')
+  sd '0' '1' '0' = ('1', '0')
+  sd '0' '1' '1' = ('2', '0')
+  -- ... (regras atômicas explícitas) ...
+  sd '8' '9' '0' = ('7', '1')
+  sd '8' '9' '1' = ('8', '1')
+  sd '9' '9' '0' = ('8', '1')
+  sd '9' '9' '1' = ('9', '1')
+
+  Como se lê cada linha:
+
+    sd '0' '0' '0' = ('0', '0')
+    → "Se o primeiro dígito é '0', o segundo é '0' e o vai-um é '0', então
+       devolva o par: dígito resultado '0' e novo vai-um '0'."
+    → Em outras palavras: 0 + 0 + 0 = 0, sem vai-um.
+
+    sd '0' '1' '1' = ('2', '0')
+    → "Se o primeiro dígito é '0', o segundo é '1' e o vai-um é '1', então
+       devolva '2' e '0'."
+    → Em outras palavras: 0 + 1 + 1 = 2, sem vai-um.
+
+    sd '8' '9' '0' = ('7', '1')
+    → "Se o primeiro dígito é '8', o segundo é '9' e o vai-um é '0', então
+       devolva '7' e '1'."
+    → Em outras palavras: 8 + 9 = 17 → emite 7, vai 1.
+
+  Padrão geral: o lado esquerdo do = é o PADRÃO DE ENTRADA (os três argumentos),
+  e o lado direito é o RESULTADO (a tupla com saída e novo vai-um).
+
+A CLÁUSULA DE COMUTATIVIDADE
+----------------------------
+  sd a b v = sd b a v
+
+  Como se lê:
+    - a, b e v são VARIÁVEIS (não valores fixos como '0' ou '8').
+    - Essa equação diz: "Para quaisquer a, b e v, o resultado de sd a b v é o
+      mesmo que sd b a v."
+
+  Por que isso existe?
+    Porque a tabela só tem regras explícitas para a <= b (ex.: sd '5' '7' '0',
+    mas NÃO sd '7' '5' '0'). Quando você chama sd '7' '5' '0', nenhuma regra
+    explícita casa. Então essa última equação entra em ação e transforma em
+    sd '5' '7' '0', que TEM regra explícita.
+
+  Cuidado:
+    Essa equação casa com QUALQUER entrada, então o compilador nunca vai
+    reclamar que falta um caso. Se você esquecer de escrever sd '3' '4' '0', o
+    programa vai entrar em loop infinito trocando '3' e '4' para sempre.
+
+================================================================================
+4. A FUNÇÃO sa - O MOTOR RECURSIVO
+================================================================================
+
+ASSINATURA
+----------
+  sa :: String -> String -> Char -> String
+
+  Como se lê:
+    - Recebe uma String, depois outra String, depois um Char, e devolve uma
+      String.
+    - String em Haskell é o mesmo que [Char] (lista de caracteres).
+
+  Traduzindo:
+    "Dadas duas fitas de texto e o vai-um atual, devolve a fita de resultado."
+
+  Importante:
+    sa espera as strings INVERTIDAS (unidades primeiro). Por isso a função s
+    faz reverse antes de chamar.
+
+CASO BASE 1 - FITAS VAZIAS, SEM VAI-UM
+--------------------------------------
+  sa [] [] '0' = []
+
+  Como se lê:
+    - [] é a lista vazia.
+    - sa [] [] '0' significa: "Se as duas fitas estão vazias e o vai-um é '0'..."
+    - = [] significa: "...então devolva a lista vazia (nada a emitir)."
+
+  Em português: "Acabou tudo, sem transporte pendente. Resultado: vazio."
+
+CASO BASE 2 - FITAS VAZIAS, COM VAI-UM
+--------------------------------------
+  sa [] [] '1' = ['1']
+
+  Como se lê:
+    - ['1'] é uma lista contendo um único caractere '1'.
+    - "Se as fitas acabaram mas o vai-um é '1'..."
+
+  Em português: "Sobrou um transporte. Emite o '1' final à esquerda."
+
+  Exemplo: "999" + "1" termina com vai-um '1', então esse caso emite o '1' que
+  forma o "1000".
+
+CASO 3 - SEGUNDA FITA ACABOU
+----------------------------
+  sa (x:xs) [] v = let (r, nv) = sd x '0' v in r : sa xs [] nv
+
+  Como se lê por partes:
+    - (x:xs) é um PADRÃO DE LISTA: x é a cabeça (primeiro elemento) e xs é a
+      cauda (resto da lista).
+      Exemplo: se a lista é ['7','8'], então x = '7' e xs = ['8'].
+    - [] significa que a segunda fita está vazia.
+    - v é o vai-um atual (variável).
+
+  O lado direito:
+    - let ... in ... é uma expressão que define variáveis locais.
+    - (r, nv) = sd x '0' v significa: "Chame sd com x, '0' e v. O resultado é
+      uma tupla. Chame o primeiro elemento de r (resultado) e o segundo de nv
+      (novo vai-um)."
+    - r : sa xs [] nv significa: "Coloque r na frente do resultado de
+      sa xs [] nv."
+    - : é o operador "cons" que adiciona um elemento no início de uma lista.
+
+  Em português:
+    "Se a segunda fita acabou, trate o dígito ausente como '0'. Consulte sd com
+     o dígito da primeira fita, '0' e o vai-um atual. Pegue o dígito resultado
+     r e o novo vai-um nv. Coloque r na frente e continue recursando com o
+     resto da primeira fita, segunda fita vazia e novo vai-um."
+
+  Exemplo: "1000" + "5" → depois de processar '0' e '5', a segunda fita acaba.
+  Aí esse caso entra: trata o próximo dígito da primeira fita ('0') como par
+  com '0' implícito.
+
+CASO 4 - PRIMEIRA FITA ACABOU
+-----------------------------
+  sa [] (y:ys) v = let (r, nv) = sd '0' y v in r : sa [] ys nv
+
+  Como se lê:
+    - [] significa que a primeira fita está vazia.
+    - (y:ys) é o padrão da segunda fita: y é a cabeça, ys é a cauda.
+    - O resto é análogo ao caso 3, mas com '0' no lugar do primeiro dígito.
+
+  Em português: "Se a primeira fita acabou, trate o dígito ausente como '0' e
+  continue com a segunda."
+
+CASO 5 - PASSO GERAL
+--------------------
+  sa (x:xs) (y:ys) v = let (r, nv) = sd x y v in r : sa xs ys nv
+
+  Como se lê:
+    - (x:xs) é a primeira fita: x é o dígito atual, xs é o resto.
+    - (y:ys) é a segunda fita: y é o dígito atual, ys é o resto.
+    - v é o vai-um atual.
+
+  O lado direito:
+    - (r, nv) = sd x y v: consulta a tabela com os dois dígitos atuais e o
+      vai-um.
+    - r : sa xs ys nv: coloca o dígito resultado na frente e recursa com os
+      restos das duas fitas e o novo vai-um.
+
+  Em português:
+    "Pegue o primeiro dígito de cada fita, consulte a tabela, emita o dígito
+     resultado e continue com o resto das duas fitas e o novo vai-um."
+
+  Exemplo: "78" e "54" (já invertidos):
+    - x = '7', y = '5', v = '0' → sd '7' '5' '0' → cai na comutatividade →
+      sd '5' '7' '0' → ('2', '1').
+    - Emite '2', novo vai-um '1'.
+    - Recursa com xs = ['8'], ys = ['4'], nv = '1'.
+
+================================================================================
+5. A FUNÇÃO s - SOMA DE DOIS NÚMEROS
+================================================================================
+
+  s :: String -> String -> String
+  s a b = reverse (sa (reverse a) (reverse b) '0')
+
+  Como se lê:
+    - s a b recebe duas strings.
+    - reverse a inverte a primeira string.
+    - reverse b inverte a segunda string.
+    - sa (reverse a) (reverse b) '0' chama o motor recursivo com as strings
+      invertidas e vai-um inicial '0'.
+    - reverse (...) inverte o resultado final.
+
+  Em português:
+    "Para somar a e b: inverta as duas, rode sa começando sem vai-um, e inverta
+     o resultado."
+
+  Por que inverter?
+    Porque sa processa a CABEÇA da lista primeiro. Se a string é "123", a
+    cabeça é '1' (centena). Mas a soma começa pelas UNIDADES ('3'). Invertendo,
+    "321" tem cabeça '3', que é a unidade.
+
+================================================================================
+6. A FUNÇÃO sl - SOMA DE UMA LISTA
+================================================================================
+
+  sl :: [String] -> String
+  sl [] = "0"
+  sl xs = foldl1 s xs
+
+  Como se lê:
+    - sl recebe uma LISTA DE STRINGS.
+    - sl [] = "0": se a lista está vazia, devolva "0" (elemento neutro da soma).
+    - sl xs = foldl1 s xs: caso contrário, use foldl1 para aplicar s
+      repetidamente.
+
+  O que é foldl1?
+    foldl1 é uma função que pega uma operação binária (como s) e uma lista, e a
+    aplica da esquerda para a direita, acumulando.
+
+  Exemplo:
+    foldl1 s ["10", "20", "30"]
+    = s (s "10" "20") "30"
+    = s "30" "30"
+    = "60"
+
+  Em português:
+    "Some o primeiro com o segundo, depois some o resultado com o terceiro, e
+     assim por diante."
+
+================================================================================
+7. EXEMPLO COMPLETO DE LEITURA: sa COM "78" E "54"
+================================================================================
+
+  Chamada inicial: sa "78" "54" '0'
+
+  1. sa (x:xs) (y:ys) v casa com x = '7', xs = "8", y = '5', ys = "4", v = '0'.
+  2. sd '7' '5' '0' → cai na comutatividade → sd '5' '7' '0' → ('2', '1').
+  3. Então r = '2', nv = '1'.
+  4. Resultado parcial: '2' : sa "8" "4" '1'.
+  5. Próxima chamada: sa (x:xs) (y:ys) v com x = '8', xs = "", y = '4',
+     ys = "", v = '1'.
+  6. sd '8' '4' '1' → cai na comutatividade → sd '4' '8' '1' → ('3', '1').
+  7. Então r = '3', nv = '1'.
+  8. Resultado parcial: '2' : '3' : sa "" "" '1'.
+  9. sa [] [] '1' casa com o caso base 2 → ['1'].
+  10. Resultado final: '2' : '3' : ['1'] = "231".
+  11. s faz reverse "231" = "132".
+
+================================================================================
+8. TABELA DE CONSULTA RÁPIDA
+================================================================================
+
+  SÍMBOLO     SIGNIFICADO
+  --------    ---------------------------------------------------------------
+  ::          "tem o tipo"
+  ->          separa tipos de argumentos e retorno
+  =           definição de uma equação
+  []          lista vazia
+  (x:xs)      padrão de lista: x é a cabeça, xs é a cauda
+  :           operador que adiciona um elemento no início de uma lista
+  let...in    define variáveis locais
+  (r, nv)     tupla de dois valores
+  reverse     inverte uma lista
+  foldl1      dobra à esquerda usando o primeiro elemento como acumulador
+  Char        tipo caractere
+  String      sinônimo de [Char] (lista de caracteres)
+
+  FUNÇÃO      O QUE FAZ
+  --------    ---------------------------------------------------------------
+  sd          Consulta a tabela: (dígito1, dígito2, vai-um) → (saída, novo vai-um)
+  sa          Percorre as fitas coluna a coluna, carregando o vai-um
+  s           Soma dois números: inverte, chama sa, inverte o resultado
+  sl          Soma uma lista de números usando foldl1
+
+  CASOS DE sa  QUANDO SE APLICA
+  ----------   ---------------------------------------------------------------
+  Caso 1       Fitas vazias, sem vai-um → devolve []
+  Caso 2       Fitas vazias, com vai-um → devolve ['1']
+  Caso 3       Segunda fita acabou → trata dígito ausente como '0'
+  Caso 4       Primeira fita acabou → trata dígito ausente como '0'
+  Caso 5       Passo geral → consulta sd e recursa
+
+================================================================================
+FIM DO ARQUIVO
+================================================================================
